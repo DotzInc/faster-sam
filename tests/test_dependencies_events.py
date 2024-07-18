@@ -87,7 +87,7 @@ class TestApiGatewayProxy(unittest.IsolatedAsyncioTestCase):
 
     async def test_sqs_event(self):
         request = build_sqs_request()
-        event = await events.sqs_event(request)
+        event = await events.sqs(request)
 
         self.assertIsInstance(event, dict)
         record = event["Records"][0]

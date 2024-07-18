@@ -38,17 +38,16 @@ async def apigateway_proxy(request: Request) -> Dict[str, Any]:
     return event
 
 
-async def sqs_event(request: Request) -> Dict[str, Any]:
-    bytes_body = await request.body()
-    json_body = bytes_body.decode()
-    body = json.loads(json_body)
+async def sqs(request: Request) -> Dict[str, Any]:
+    data = await request.body()
+    body = json.loads(data)
+
+    publish_time = datetime.strptime(body["message"]["publishTime"], "%Y-%m-%dT%H:%M:%S.%fZ")
+    publish_time *= KILO_SECONDS
 
     attributes = {
         "ApproximateReceiveCount": body["deliveryAttempt"],
-        "SentTimestamp": datetime.timestamp(
-            datetime.strptime(body["message"]["publishTime"], "%Y-%m-%dT%H:%M:%S.%fZ")
-        )
-        * KILO_SECONDS,
+        "SentTimestamp": datetime.timestamp(publish_time),
         "SenderId": "",
         "ApproximateFirstReceiveTimestamp": "",
     }
@@ -61,7 +60,7 @@ async def sqs_event(request: Request) -> Dict[str, Any]:
                 "body": base64.b64decode(body["message"]["data"]).decode("UTF-8"),
                 "attributes": attributes,
                 "messageAttributes": body["message"].get("attributes", {}),
-                "md5OfBody": hashlib.md5(json_body.encode("utf-8")).hexdigest(),
+                "md5OfBody": hashlib.md5(data).hexdigest(),
                 "eventSource": "aws:sqs",
                 "eventSourceARN": "arn:aws:sqs:us-east-2:123456789012:my-queue",
                 "awsRegion": "us-east-2",
