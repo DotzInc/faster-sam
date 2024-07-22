@@ -1,5 +1,4 @@
 import hashlib
-import json
 import unittest
 from datetime import datetime, timezone
 from unittest.mock import patch
@@ -8,7 +7,7 @@ import uuid
 from fastapi import FastAPI, Request
 
 from faster_sam.dependencies import events
-from faster_sam.dependencies.schemas import PubSubEnvelope, PubSubMessage
+from faster_sam.dependencies.schemas import PubSubEnvelope
 
 
 def build_apigateway_request():
