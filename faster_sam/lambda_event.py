@@ -141,12 +141,18 @@ class SQS(ResourceInterface):
         json_body = bytes_body.decode()
         body = json.loads(json_body)
 
-        attributes = {
-            "ApproximateReceiveCount": body["deliveryAttempt"],
-            "SentTimestamp": datetime.timestamp(
+        try:
+            timestamp = datetime.timestamp(
                 datetime.strptime(body["message"]["publishTime"], "%Y-%m-%dT%H:%M:%S.%fZ")
             )
-            * KILO_SECONDS,
+        except ValueError:
+            timestamp = datetime.timestamp(
+                datetime.strptime(body["message"]["publishTime"], "%Y-%m-%dT%H:%M:%S%z")
+            )
+
+        attributes = {
+            "ApproximateReceiveCount": body["deliveryAttempt"],
+            "SentTimestamp": timestamp * KILO_SECONDS,
             "SenderId": "",
             "ApproximateFirstReceiveTimestamp": "",
         }

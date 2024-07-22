@@ -38,7 +38,7 @@ def build_request_api_gateway():
     return Request(scope, receive)
 
 
-def build_request_sqs():
+def build_request_sqs(time_with_milliseconds=True):
     async def receive():
         body = {
             "deliveryAttempt": 1,
@@ -52,6 +52,10 @@ def build_request_sqs():
             },
             "subscription": "projects/dotz-noverde-dev/subscriptions/test-workflows",
         }
+
+        if not time_with_milliseconds:
+            body["message"]["publishTime"] = "2024-02-22T15:45:31Z"
+
         return {"type": "http.request", "body": json.dumps(body).encode()}
 
     scope = {
@@ -188,7 +192,6 @@ class TestEventBuilder(unittest.IsolatedAsyncioTestCase):
         self.assertIn("authorizer", event["requestContext"])
 
     async def test_event_builder_sqs(self):
-        request = build_request_sqs()
         expected_key = {
             "messageId",
             "receiptHandle",
@@ -206,12 +209,16 @@ class TestEventBuilder(unittest.IsolatedAsyncioTestCase):
         handler_path = f"{module_name}.{handler_name}"
         handler = faster_sam.routing.import_handler(handler_path)
 
-        sqs = faster_sam.lambda_event.SQS(request, handler)
+        for case in [True, False]:
+            with self.subTest(time_with_milliseconds=case):
+                request = build_request_sqs(case)
 
-        event = await sqs.event_builder()
+                sqs = faster_sam.lambda_event.SQS(request, handler)
 
-        self.assertIsInstance(event, dict)
-        self.assertEqual(set(event["Records"][0].keys()), expected_key)
+                event = await sqs.event_builder()
+
+                self.assertIsInstance(event, dict)
+                self.assertEqual(set(event["Records"][0].keys()), expected_key)
 
     async def test_event_builder_schedule(self):
         request = build_request_schedule()
