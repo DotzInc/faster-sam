@@ -2,10 +2,14 @@ import base64
 import hashlib
 import json
 from datetime import datetime, timezone
-from typing import Any, Dict
+from typing import Any, Callable, Dict, Protocol, Type, runtime_checkable
 from uuid import uuid4
+import uuid
 
 from fastapi import Request
+from pydantic import BaseModel
+
+from faster_sam.dependencies.schemas import SQSInfo
 
 KILO_SECONDS = 1000.0
 
@@ -38,34 +42,39 @@ async def apigateway_proxy(request: Request) -> Dict[str, Any]:
     return event
 
 
-async def sqs(request: Request) -> Dict[str, Any]:
-    data = await request.body()
-    body = json.loads(data)
+@runtime_checkable
+class IntoSQSInfo(Protocol):
+    def into(self) -> SQSInfo: ...
 
-    publish_time = datetime.strptime(body["message"]["publishTime"], "%Y-%m-%dT%H:%M:%S.%fZ")
-    publish_time *= KILO_SECONDS
 
-    attributes = {
-        "ApproximateReceiveCount": body["deliveryAttempt"],
-        "SentTimestamp": datetime.timestamp(publish_time),
-        "SenderId": "",
-        "ApproximateFirstReceiveTimestamp": "",
-    }
+def sqs(schema: Type[BaseModel]) -> Callable[..., dict[str, Any]]:
+    def dep(message: schema) -> dict[str, Any]:
 
-    event = {
-        "Records": [
-            {
-                "messageId": body["message"]["messageId"],
-                "receiptHandle": "AQEBwJnKyrHigUMZj6rYigCgxlaS3SLy0a...",
-                "body": base64.b64decode(body["message"]["data"]).decode("UTF-8"),
-                "attributes": attributes,
-                "messageAttributes": body["message"].get("attributes", {}),
-                "md5OfBody": hashlib.md5(data).hexdigest(),
-                "eventSource": "aws:sqs",
-                "eventSourceARN": "arn:aws:sqs:us-east-2:123456789012:my-queue",
-                "awsRegion": "us-east-2",
-            },
-        ]
-    }
+        assert isinstance(message, IntoSQSInfo)
 
-    return event
+        info = message.into()
+
+        event = {
+            "Records": [
+                {
+                    "messageId": info.id,
+                    "receiptHandle": str(uuid.uuid4()),
+                    "body": info.body,
+                    "attributes": {
+                        "ApproximateReceiveCount": info.receive_count,
+                        "SentTimestamp": info.sent_timestamp,
+                        "SenderId": str(uuid.uuid4()),
+                        "ApproximateFirstReceiveTimestamp": info.sent_timestamp,
+                    },
+                    "messageAttributes": info.message_attributes,
+                    "md5OfBody": hashlib.md5(info.body.encode()).hexdigest(),
+                    "eventSource": "aws:sqs",
+                    "eventSourceARN": info.source_arn,
+                    "awsRegion": None,
+                },
+            ]
+        }
+
+        return event
+
+    return dep
