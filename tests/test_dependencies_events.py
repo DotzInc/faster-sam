@@ -7,10 +7,10 @@ import uuid
 from fastapi import FastAPI, Request
 
 from faster_sam.dependencies import events
-from faster_sam.dependencies.schemas import PubSubEnvelope
+from faster_sam.schemas import PubSubEnvelope
 
 
-def build_apigateway_request():
+def build_request():
     async def receive():
         return {"type": "http.request", "body": b'{"message": "pong"}'}
 
@@ -33,9 +33,9 @@ def build_apigateway_request():
     return Request(scope, receive)
 
 
-class TestEvents(unittest.IsolatedAsyncioTestCase):
-    async def test_apigateway_event(self):
-        request = build_apigateway_request()
+class TestApiGatewayProxy(unittest.IsolatedAsyncioTestCase):
+    async def test_event(self):
+        request = build_request()
         event = await events.apigateway_proxy(request)
 
         self.assertIsInstance(event, dict)
@@ -56,8 +56,10 @@ class TestEvents(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(event["requestContext"]["httpMethod"], "GET")
         self.assertEqual(event["requestContext"]["protocol"], "HTTP/1.1")
 
+
+class TestSQSEvent(unittest.IsolatedAsyncioTestCase):
     @patch("uuid.uuid4", return_value=uuid.UUID("12345678123456781234567812345678"))
-    async def test_sqs_event(self, mock_uuid):
+    async def test_event(self, mock_uuid):
         pubSubEnvelope = PubSubEnvelope(
             message={
                 "data": "aGVsbG8=",

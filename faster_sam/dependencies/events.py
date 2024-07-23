@@ -1,15 +1,13 @@
 import hashlib
 from datetime import datetime, timezone
-from typing import Any, Callable, Dict, Protocol, Type, runtime_checkable
+from typing import Any, Callable, Dict, Type
 from uuid import uuid4
 import uuid
 
 from fastapi import Request
 from pydantic import BaseModel
 
-from faster_sam.dependencies.schemas import SQSInfo
-
-KILO_SECONDS = 1000.0
+from faster_sam.protocols import IntoSQSInfo
 
 
 async def apigateway_proxy(request: Request) -> Dict[str, Any]:
@@ -40,13 +38,8 @@ async def apigateway_proxy(request: Request) -> Dict[str, Any]:
     return event
 
 
-@runtime_checkable
-class IntoSQSInfo(Protocol):
-    def into(self) -> SQSInfo: ...
-
-
-def sqs(schema: Type[BaseModel]) -> Callable[..., dict[str, Any]]:
-    def dep(message: schema) -> dict[str, Any]:
+def sqs(schema: Type[BaseModel]) -> Callable[[BaseModel], Dict[str, Any]]:
+    def dep(message: schema) -> Dict[str, Any]:
 
         assert isinstance(message, IntoSQSInfo)
 
