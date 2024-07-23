@@ -38,25 +38,18 @@ def build_request_api_gateway():
     return Request(scope, receive)
 
 
-def build_request_sqs(time_with_milliseconds=True):
-    async def receive():
-        body = {
-            "deliveryAttempt": 1,
-            "message": {
-                "attributes": {"endpoint": "sre-tests-queue"},
-                "data": "aGVsbG8=",
-                "messageId": "10519041647717348",
-                "message_id": "10519041647717348",
-                "publishTime": "2024-02-22T15:45:31.346Z",
-                "publish_time": "2024-02-22T15:45:31.346Z",
-            },
-            "subscription": "projects/dotz-noverde-dev/subscriptions/test-workflows",
-        }
-
-        if not time_with_milliseconds:
-            body["message"]["publishTime"] = "2024-02-22T15:45:31Z"
-
-        return {"type": "http.request", "body": json.dumps(body).encode()}
+class BuildRequestSQS:
+    body = {
+        "deliveryAttempt": 1,
+        "message": {
+            "attributes": {"endpoint": "sre-tests-queue"},
+            "data": "aGVsbG8=",
+            "messageId": "10519041647717348",
+            "message_id": "10519041647717348",
+            "publishTime": "",
+            "publish_time": "",
+        },
+    }
 
     scope = {
         "type": "http",
@@ -70,7 +63,25 @@ def build_request_sqs(time_with_milliseconds=True):
         "app": FastAPI(),
     }
 
-    return Request(scope, receive)
+    @classmethod
+    def build_request_sqs_with_milliseconds(cls):
+        async def receive():
+            cls.body["message"]["publishTime"] = "2024-02-22T15:45:31.346Z"
+            cls.body["message"]["publish_time"] = "2024-02-22T15:45:31.346Z"
+
+            return {"type": "http.request", "body": json.dumps(cls.body).encode()}
+
+        return Request(cls.scope, receive)
+
+    @classmethod
+    def build_request_sqs_with_seconds(cls):
+        async def receive():
+            cls.body["message"]["publishTime"] = "2024-02-22T15:45:31Z"
+            cls.body["message"]["publish_time"] = "2024-02-22T15:45:31Z"
+
+            return {"type": "http.request", "body": json.dumps(cls.body).encode()}
+
+        return Request(cls.scope, receive)
 
 
 def build_request_schedule():
@@ -209,11 +220,14 @@ class TestEventBuilder(unittest.IsolatedAsyncioTestCase):
         handler_path = f"{module_name}.{handler_name}"
         handler = faster_sam.routing.import_handler(handler_path)
 
-        for case in [True, False]:
-            with self.subTest(time_with_milliseconds=case):
-                request = build_request_sqs(case)
+        cases = {
+            "publish_time_with_milliseconds": BuildRequestSQS.build_request_sqs_with_milliseconds,
+            "publish_time_with_seconds": BuildRequestSQS.build_request_sqs_with_seconds,
+        }
 
-                sqs = faster_sam.lambda_event.SQS(request, handler)
+        for case, event in cases.items():
+            with self.subTest(case=case):
+                sqs = faster_sam.lambda_event.SQS(event(), handler)
 
                 event = await sqs.event_builder()
 
