@@ -147,7 +147,7 @@ class SQS(ResourceInterface):
             )
         except ValueError:
             timestamp = datetime.timestamp(
-                datetime.strptime(body["message"]["publishTime"], "%Y-%m-%dT%H:%M:%S%z")
+                datetime.strptime(body["message"]["publishTime"], "%Y-%m-%dT%H:%M:%SZ")
             )
 
         attributes = {
