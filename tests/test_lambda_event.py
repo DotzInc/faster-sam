@@ -38,18 +38,21 @@ def build_request_api_gateway():
     return Request(scope, receive)
 
 
-class BuildRequestSQS:
-    body = {
-        "deliveryAttempt": 1,
-        "message": {
-            "attributes": {"endpoint": "sre-tests-queue"},
-            "data": "aGVsbG8=",
-            "messageId": "10519041647717348",
-            "message_id": "10519041647717348",
-            "publishTime": "",
-            "publish_time": "",
-        },
-    }
+def build_request_sqs_with_milliseconds():
+    async def receive():
+        body = {
+            "deliveryAttempt": 1,
+            "message": {
+                "attributes": {"endpoint": "sre-tests-queue"},
+                "data": "aGVsbG8=",
+                "messageId": "10519041647717348",
+                "message_id": "10519041647717348",
+                "publishTime": "2024-02-22T15:45:31.346Z",
+                "publish_time": "2024-02-22T15:45:31.346Z",
+            },
+        }
+
+        return {"type": "http.request", "body": json.dumps(body).encode()}
 
     scope = {
         "type": "http",
@@ -63,25 +66,38 @@ class BuildRequestSQS:
         "app": FastAPI(),
     }
 
-    @classmethod
-    def build_request_sqs_with_milliseconds(cls):
-        async def receive():
-            cls.body["message"]["publishTime"] = "2024-02-22T15:45:31.346Z"
-            cls.body["message"]["publish_time"] = "2024-02-22T15:45:31.346Z"
+    return Request(scope, receive)
 
-            return {"type": "http.request", "body": json.dumps(cls.body).encode()}
 
-        return Request(cls.scope, receive)
+def build_request_sqs_with_seconds():
+    async def receive():
+        body = {
+            "deliveryAttempt": 1,
+            "message": {
+                "attributes": {"endpoint": "sre-tests-queue"},
+                "data": "aGVsbG8=",
+                "messageId": "10519041647717348",
+                "message_id": "10519041647717348",
+                "publishTime": "2024-02-22T15:45:31Z",
+                "publish_time": "2024-02-22T15:45:31Z",
+            },
+        }
 
-    @classmethod
-    def build_request_sqs_with_seconds(cls):
-        async def receive():
-            cls.body["message"]["publishTime"] = "2024-02-22T15:45:31Z"
-            cls.body["message"]["publish_time"] = "2024-02-22T15:45:31Z"
+        return {"type": "http.request", "body": json.dumps(body).encode()}
 
-            return {"type": "http.request", "body": json.dumps(cls.body).encode()}
+    scope = {
+        "type": "http",
+        "http_version": "1.1",
+        "root_path": "",
+        "path": "/test",
+        "method": "GET",
+        "query_string": [],
+        "path_params": {},
+        "client": ("127.0.0.1", 80),
+        "app": FastAPI(),
+    }
 
-        return Request(cls.scope, receive)
+    return Request(scope, receive)
 
 
 def build_request_schedule():
@@ -221,8 +237,8 @@ class TestEventBuilder(unittest.IsolatedAsyncioTestCase):
         handler = faster_sam.routing.import_handler(handler_path)
 
         cases = {
-            "publish_time_with_milliseconds": BuildRequestSQS.build_request_sqs_with_milliseconds,
-            "publish_time_with_seconds": BuildRequestSQS.build_request_sqs_with_seconds,
+            "publish_time_with_milliseconds": build_request_sqs_with_milliseconds,
+            "publish_time_with_seconds": build_request_sqs_with_seconds,
         }
 
         for case, request in cases.items():
