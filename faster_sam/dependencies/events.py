@@ -40,11 +40,9 @@ async def apigateway_proxy(request: Request) -> Dict[str, Any]:
 
 def sqs(schema: Type[BaseModel]) -> Callable[[BaseModel], Dict[str, Any]]:
     def dep(message: schema) -> Dict[str, Any]:
-
         assert isinstance(message, IntoSQSInfo)
 
         info = message.into()
-
         event = {
             "Records": [
                 {

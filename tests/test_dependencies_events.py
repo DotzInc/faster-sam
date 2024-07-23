@@ -57,22 +57,28 @@ class TestApiGatewayProxy(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(event["requestContext"]["protocol"], "HTTP/1.1")
 
 
-class TestSQSEvent(unittest.IsolatedAsyncioTestCase):
+class TestSQS(unittest.IsolatedAsyncioTestCase):
     @patch("uuid.uuid4", return_value=uuid.UUID("12345678123456781234567812345678"))
     async def test_event(self, mock_uuid):
-        pubSubEnvelope = PubSubEnvelope(
-            message={
+        data = {
+            "message": {
                 "data": "aGVsbG8=",
                 "attributes": {"foo": "bar"},
                 "messageId": "10519041647717348",
                 "publishTime": "2024-02-22T15:45:31.346Z",
             },
-            subscription="projects/foo/subscriptions/bar",
-            deliveryAttempt=1,
-        )
+            "subscription": "projects/foo/subscriptions/bar",
+            "deliveryAttempt": 1,
+        }
 
-        event_func = events.sqs(PubSubEnvelope)
-        event = event_func(pubSubEnvelope)
+        pubsub_envelope = PubSubEnvelope(**data)
+
+        SQSEvent = events.sqs(PubSubEnvelope)
+        event = SQSEvent(pubsub_envelope)
+
+        parsed_datetime = datetime.strptime("2024-02-22T15:45:31.346Z", "%Y-%m-%dT%H:%M:%S.%fZ")
+        parsed_datetime_utc = parsed_datetime.replace(tzinfo=timezone.utc)
+        timestamp_milliseconds = int(parsed_datetime_utc.timestamp() * 1000)
 
         self.assertIsInstance(event, dict)
         record = event["Records"][0]
@@ -81,22 +87,12 @@ class TestSQSEvent(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(record["attributes"]["ApproximateReceiveCount"], 1)
         self.assertEqual(
             record["attributes"]["SentTimestamp"],
-            int(
-                datetime.strptime("2024-02-22T15:45:31.346Z", "%Y-%m-%dT%H:%M:%S.%fZ")
-                .replace(tzinfo=timezone.utc)
-                .timestamp()
-                * 1000
-            ),
+            timestamp_milliseconds,
         )
         self.assertEqual(record["attributes"]["SenderId"], "12345678-1234-5678-1234-567812345678")
         self.assertEqual(
             record["attributes"]["ApproximateFirstReceiveTimestamp"],
-            int(
-                datetime.strptime("2024-02-22T15:45:31.346Z", "%Y-%m-%dT%H:%M:%S.%fZ")
-                .replace(tzinfo=timezone.utc)
-                .timestamp()
-                * 1000
-            ),
+            timestamp_milliseconds,
         )
         self.assertEqual(record["messageAttributes"], {"foo": "bar"})
         self.assertEqual(

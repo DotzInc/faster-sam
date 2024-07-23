@@ -1,6 +1,6 @@
 from datetime import datetime
 from typing import Dict, Optional
-from pydantic import BaseModel, Base64UrlStr
+from pydantic import BaseModel, Base64UrlStr, Field
 
 
 class SQSInfo(BaseModel):
@@ -8,15 +8,15 @@ class SQSInfo(BaseModel):
     body: str
     receive_count: int
     sent_timestamp: int
-    message_attributes: Optional[Dict[str, str]] = None
     source_arn: str
+    message_attributes: Optional[Dict[str, str]] = Field(default=None)
 
 
 class PubSubMessage(BaseModel):
     data: Base64UrlStr
-    attributes: Optional[Dict[str, str]] = None
     messageId: str
     publishTime: datetime
+    attributes: Optional[Dict[str, str]] = Field(default=None)
 
 
 class PubSubEnvelope(BaseModel):
