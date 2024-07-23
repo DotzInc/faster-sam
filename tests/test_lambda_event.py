@@ -225,9 +225,9 @@ class TestEventBuilder(unittest.IsolatedAsyncioTestCase):
             "publish_time_with_seconds": BuildRequestSQS.build_request_sqs_with_seconds,
         }
 
-        for case, event in cases.items():
+        for case, request in cases.items():
             with self.subTest(case=case):
-                sqs = faster_sam.lambda_event.SQS(event(), handler)
+                sqs = faster_sam.lambda_event.SQS(request(), handler)
 
                 event = await sqs.event_builder()
 
