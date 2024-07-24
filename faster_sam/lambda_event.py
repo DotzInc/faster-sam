@@ -11,7 +11,7 @@ from fastapi import BackgroundTasks, Request, Response
 
 logger = logging.getLogger(__name__)
 
-MILLISECONDS = 1000.0
+MILLISECONDS = 1000
 
 Handler = Callable[[Dict[str, Any], Any], Dict[str, Any]]
 
